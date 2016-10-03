@@ -2,7 +2,7 @@
 
     var prValidation = function (element) {
 
-        if (!(this instanceof prValidation)){
+        if (!(this instanceof prValidation)) {
             return this;
         }
 
@@ -17,23 +17,47 @@
          */
         this.bindEvents = function () {
             var prVal = this;
-            prVal.element.blur(function () {
-                var result = false;
-                // запускаем все правила валидации поочереди
-                for (var i = 0; i < prVal.rules.length; i++) {
 
-                    if (prVal.rules[i].live) {
-                        //если валидация не прошла, тогда прерываемся если нет, тогда запускаем следующее
-                        result = prVal.rules[i].expression($(this));
-                        if (result == false) {
-                            prVal.showError($(this), prVal.rules[i]);
-                            break;
-                        } else {
-                            prVal.hideError($(this), prVal.rules[i]);
-                        }
+            prVal.element.blur(function () {
+                prVal.validate(this);
+            });
+
+            prVal.element.closest('form').submit(function (){
+                var res =  prVal.validate(prVal.element);
+                return res;
+            })
+        };
+
+        /**
+         * запустить валидацию инпута
+         *
+         * @returns {boolean}
+         */
+        this.validate = function (element) {
+            var result = false;
+            // запускаем все правила валидации поочереди
+            for (var i = 0; i < this.rules.length; i++) {
+
+                if (this.rules[i].live) {
+                    //Проверяем это функция или нет
+                    var getType = {};
+                    var is_function = ( this.rules[i].expression && getType.toString.call(this.rules[i].expression) === '[object Function]');
+                    if (is_function) {
+                        result = this.rules[i].expression($(element));
+                    } else {
+                        result = this.preinstalValidationRules[this.rules[i].expression]($(element));
+                    }
+                    //если валидация не прошла, тогда прерываемся если нет, тогда запускаем следующее
+                    if (result == false) {
+                        this.showError($(element), this.rules[i]);
+                        i = this.rules.length;
+                    } else {
+                        this.hideError($(element), this.rules[i]);
                     }
                 }
-            });
+            }
+
+            return result;
         };
 
         /**
@@ -49,10 +73,27 @@
             $(elem).after($error_sign);
             $(elem).addClass('error');
             $error_sign.html(rule.message);
+
+            if (rule.callback != undefined) {
+                rule.callback(elem);
+            }
         };
 
         this.hideError = function (elem, rule) {
             $(elem).next(this.error_selector).remove();
+        };
+
+
+        this.preinstalValidationRules = {
+
+            required: function (element) {
+                if (element.val() == null || element.val() == '') {
+                    return false;
+                } else {
+                    return true;
+                }
+            }
+
         };
 
         return this;
@@ -60,26 +101,26 @@
 
     /**
      * добавляем в jQuery функцию для создание Валидатора
-     * @param options
+     *
+     * @param rules -    {
+     *                       expression: 'string' or function(element){},
+     *                       message: 'Сообщение, которое будет отображаться при ошибке',
+     *                       live: true,
+     *                       callback: function(element){})
+     *                   }
      */
-    jQuery.fn.addValidationRule = function (options) {
+    jQuery.fn.addValidationRules = function (rules) {
 
         //если надо создаем объект для хранения правил валидации
         if (this[0].prValidation != {}) {
             this[0].prValidation = new prValidation(this);
         }
 
-        //добавляем правило валидации
-        var rule = {};
+        for (var i = 0; i < rules.length; i++) {
+            rules[i].live = true;
+        }
 
-        //назначаем событие валидации
-        rule.message = options.message;
-        rule.expression = options.expression;
-        rule.live = true; //options.live;
-        rule.error_class = options.errorClass;
-        rule.error = options.error;
-
-        this[0].prValidation.rules.push(rule);
+        this[0].prValidation.rules = rules;
         this[0].prValidation.bindEvents();
     }
 
