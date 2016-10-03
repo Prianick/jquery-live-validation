@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="html/text; charset=utf-8">
+    <script src="vendor/jquery-3.1.1.js"></script>
+    <script src="pr.validation.js"></script>
+</head>
+
+<script>
+
+    $(document).ready(function () {
+
+        $('input[name=user-email]').addValidationRule({
+            message: 'not empty',
+            expression: function (element) {
+                console.log('here');
+                if (element.val() == '') {
+                    return false;
+                } else {
+                    return true;
+                }
+            },
+            live: true,
+            error_class: '',
+            error_field_class: ''
+        })
+
+    })
+
+</script>
+
+<body>
+
+<form>
+    <input type="email" name="user-email"><br>
+    <input type="name" name="user-name"><br>
+
+    <input type="submit" value="submit">
+</form>
+
+</body>
+</html>
