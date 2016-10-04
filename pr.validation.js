@@ -11,6 +11,11 @@
 
         this.error_selector = '.error-notification';
         this.error_html = '<div class=\'error-notification\'></div>';
+        this.is_validation_completed = false;
+        this.$form = this.element.closest('form');
+        this.submit_btn = this.$form.find('[type=submit]');
+
+        this.submit_btn.prop('disabled', true);
 
         /**
          * вешамаем события валидации
@@ -22,10 +27,34 @@
                 prVal.validate(this);
             });
 
-            prVal.element.closest('form').submit(function (){
-                var res =  prVal.validate(prVal.element);
-                return res;
+            prVal.element.focus(function () {
+                prVal.refreshNotification(this);
+            });
+
+            prVal.element.closest('form').submit(function () {
+                var result = prVal.validate(prVal.element);
+                return result;
             })
+        };
+
+        this.init = function () {
+            if (this.element.val() != '') {
+                this.validate(this.element);
+            }
+        };
+
+        /**
+         * При фокусе все callback'и вызываются с сообщеием null,
+         * чтобы можно было сбросить или скрыть все уведомления показанные ранее
+         *
+         * @param element
+         */
+        this.refreshNotification = function (element) {
+            for (var i = 0; i < this.rules.length; i++) {
+                if (this.rules[i].callbackFunction != undefined) {
+                    this.rules[i].callbackFunction($(element), true);
+                }
+            }
         };
 
         /**
@@ -47,13 +76,23 @@
                     } else {
                         result = this.preinstalValidationRules[this.rules[i].expression]($(element));
                     }
-                    //если валидация не прошла, тогда прерываемся если нет, тогда запускаем следующее
+                    // Если валидация не прошла, тогда прерываемся. Если нет, тогда запускаем следующее правило.
                     if (result == false) {
                         this.showError($(element), this.rules[i]);
-                        i = this.rules.length;
+                        this.is_validation_completed = false;
                     } else {
                         this.hideError($(element), this.rules[i]);
+                        this.is_validation_completed = true;
                     }
+
+                    if (this.rules[i].callbackFunction != undefined) { // Вызываем callback, если он есть.
+                        this.rules[i].callbackFunction($(element), result);
+                    }
+
+                    if (result == false) { // Прерываем валидацию так как нашли ошибку.
+                        i = this.rules.length;
+                    }
+                    this.checkSubmitBtnAvailability();
                 }
             }
 
@@ -73,14 +112,11 @@
             $(elem).after($error_sign);
             $(elem).addClass('error');
             $error_sign.html(rule.message);
-
-            if (rule.callback != undefined) {
-                rule.callback(elem);
-            }
         };
 
         this.hideError = function (elem, rule) {
             $(elem).next(this.error_selector).remove();
+            $(elem).removeClass('error');
         };
 
 
@@ -114,6 +150,22 @@
 
         };
 
+        /**
+         * Функция проверяет можно ли дать доступ к кнопке submit
+         */
+        this.checkSubmitBtnAvailability = function () {
+            this.$form.find('input').each(function (element) {
+                if (this.prValidation != undefined) {
+                    if (this.prValidation.is_validation_completed) {
+                        this.prValidation.submit_btn.prop('disabled', false);
+                    } else {
+                        this.prValidation.submit_btn.prop('disabled', true);
+                        return false;
+                    }
+                }
+            })
+        };
+
         return this;
     };
 
@@ -124,7 +176,7 @@
      *                       expression: 'string' or function(element){},
      *                       message: 'Сообщение, которое будет отображаться при ошибке',
      *                       live: true,
-     *                       callback: function(element){})
+     *                       callback: function(element, result){})
      *                   }
      */
     jQuery.fn.addValidationRules = function (rules) {
@@ -140,6 +192,7 @@
 
         this[0].prValidation.rules = rules;
         this[0].prValidation.bindEvents();
+        this[0].prValidation.init();
     }
 
 })(jQuery);
